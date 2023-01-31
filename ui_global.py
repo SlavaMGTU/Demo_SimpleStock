@@ -7,11 +7,11 @@ import datetime
 # db = Database()
 # db.bind(provider='sqlite', filename='//data/data/ru.travelfood.simple_ui/databases/SimpleWMS', create_db=True)
 
-DB_PATH = 'db.db'  # 'db\\db.db'#new
+#DB_PATH = 'db.db'  # 'db\\db.db'#new #new2
 # DB_PATH = 'sqlite_dev.db'
 db = Database()  # new
 
-db.bind(provider='sqlite', filename=DB_PATH, create_db=True)  # new
+db.bind(provider='sqlite', filename='db.db', create_db=True)  # new #new2filename=DB_PATH,
 
 
 class SW_Units(db.Entity):

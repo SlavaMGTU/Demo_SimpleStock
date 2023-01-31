@@ -1,23 +1,15 @@
+from unicodedata import name
 
+import ui_global
+from pony.orm.core import db_session
+from pony import orm
+from pony.orm import Database, Required, Set, select, commit
+import json
 import os
 import sqlite3  # This is another way to work with SQL
 from sqlite3.dbapi2 import Error
 from datetime import datetime
 from PIL import Image
-from flask import Flask
-from flask import request
-import json
-from pony.orm import select, db_session, commit
-import ui_global
-
-
-
-app = Flask(__name__)
-
-
-# -BEGIN CUSTOM HANDLERS
-
-DB_PATH_debug = '\\'    #DB_PATH = 'db.db' #new2 замена переменной
 
 unit_id = -1
 nom_id = -1
@@ -29,23 +21,21 @@ green_size = 0
 yellow_size = 0
 
 
-#func = method.replace('_', '', 1)
-
-def init_on_start():#hashMap, _files=None, _data=None):
+def init_on_start(hashMap, _files=None, _data=None):
     ui_global.init()
     return hashMap
 
 
 def menu_input(hashMap, _files=None, _data=None):
     if hashMap.get("listener") == "menu":
-        if hashMap.get("menu") == "Единицы":
-            hashMap.put("ShowScreen", "Единицы")
-        if hashMap.get("menu") == "Группы":
-            hashMap.put("ShowScreen", "Группы")
-        if hashMap.get("menu") == "Ячейки":
-            hashMap.put("ShowScreen", "Ячейки")
-        elif hashMap.get("menu") == "Товары":
-            hashMap.put("ShowScreen", "Товары")
+        if hashMap.get("menu") == "Добавить товар":
+            hashMap.put("ShowScreen", "Добавить товар")
+        if hashMap.get("menu") == "Добавить ячейку":
+            hashMap.put("ShowScreen", "Добавить ячейку")
+        if hashMap.get("menu") == "Добавить группу товаров":
+            hashMap.put("ShowScreen", "Добавить группу товаров")
+        elif hashMap.get("menu") == "Добавить единицу измерения":
+            hashMap.put("ShowScreen", "Добавить единицу измерения")
     elif hashMap.get("listener") == 'ON_BACK_PRESSED':
         hashMap.put("FinishProcess", "")
     return hashMap
@@ -57,7 +47,7 @@ def menu_on_start(hashMap, _files=None, _data=None):
     return hashMap
 
 
-# ---------------------------Единицы
+# ---------------------------Добавить единицу измерения
 def units_on_start(hashMap, _files=None, _data=None):
     table = {
         "type": "table",
@@ -72,11 +62,10 @@ def units_on_start(hashMap, _files=None, _data=None):
         ]
     }
     # work with SQL via Pony ORM
-    with db_session:# Заменил!!!
-        query = select(c for c in ui_global.SW_Units)
-        rows = []
-        for record in query:
-            rows.append({"name": record.name, "id": record.id})
+    query = select(c for c in ui_global.SW_Units)
+    rows = []
+    for record in query:
+        rows.append({"name": record.name, "id": record.id})
 
     table['rows'] = rows
     hashMap.put("list", json.dumps(table))
@@ -125,7 +114,7 @@ def units_input(hashMap, _files=None, _data=None):
     return hashMap
 
 
-# ---------------------------Группы
+# ---------------------------Добавить группу товаров
 def groups_on_start(hashMap, _files=None, _data=None):
     table = {
         "type": "table",
@@ -140,11 +129,10 @@ def groups_on_start(hashMap, _files=None, _data=None):
         ]
     }
     # work with SQL via Pony ORM
-    with db_session:# Заменил!!!
-        query = select(c for c in ui_global.SW_Groups)
-        rows = []
-        for record in query:
-            rows.append({"name": record.name, "id": record.id})
+    query = select(c for c in ui_global.SW_Groups)
+    rows = []
+    for record in query:
+        rows.append({"name": record.name, "id": record.id})
 
     table['rows'] = rows
     hashMap.put("list", json.dumps(table))
@@ -192,7 +180,7 @@ def groups_input(hashMap, _files=None, _data=None):
     return hashMap
 
 
-# -----------------------------------------Товары
+# -----------------------------------------Добавить товар
 def goods_on_start(hashMap, _files=None, _data=None):
     hashMap.put("mm_local", "")
     hashMap.put("mm_compression", "70")
@@ -276,34 +264,29 @@ def goods_on_start(hashMap, _files=None, _data=None):
     }
 
     # _files = json.loads(hashMap.get("_files"))
-    with db_session:# Заменил!!!
-        query = select(c for c in ui_global.SW_Goods)
-        list["customcards"]["cardsdata"] = []
 
-        for record in query:
+    query = select(c for c in ui_global.SW_Goods)
+    list["customcards"]["cardsdata"] = []
 
-            pic = ""
-            if 'photo' in record.pictures:
+    for record in query:
 
-                p = record.pictures['photo']
+        pic = ""
+        if 'photo' in record.pictures:
 
-                if len(p) > 0:
+            p = record.pictures['photo']
 
-                    for jf in p:#new2_files: нет_files - заменил на p  # находим путь к файлу по идентификатору ЗАКЛАДКА!!! ОШИБКА!!!
-                        if jf['id'] == p[0]:
-                            if os.path.exists(jf['path']):
-                                pic = "~" + jf['path']
-                            break
+            if len(p) > 0:
 
-            list["customcards"]["cardsdata"].append(
-                {"name": record.name, "key": record.id, "product_number": str(record.product_number),
-                 "barcode": str(record.barcode), "unit": str(record.unit), "skugroup": str(record.group),
-                 "price": record.price, "unique": record.unique, "pictures": json.dumps(record.pictures), "pic": pic})
+                for jf in _files:  # находим путь к файлу по идентификатору
+                    if jf['id'] == p[0]:
+                        if os.path.exists(jf['path']):
+                            pic = "~" + jf['path']
+                        break
 
-        # for n in range(10000):
-
-    #    list["customcards"]["cardsdata"].append({"name":"Тестовый товар "+str(n),"key":n,"product_number":str(n),"barcode":str(n), "unit":"Шт.", "skugroup":"Тест","price":1,"unique":True,"pictures":[],"pic":""})
-
+        list["customcards"]["cardsdata"].append(
+            {"name": record.name, "key": record.id, "product_number": str(record.product_number),
+             "barcode": str(record.barcode), "unit": str(record.unit), "skugroup": str(record.group),
+             "price": record.price, "unique": record.unique, "pictures": json.dumps(record.pictures), "pic": pic})
     hashMap.put("list", json.dumps(list))
 
     return hashMap
@@ -364,60 +347,25 @@ def goods_input(hashMap, _files=None, _data=None):
 
     elif hashMap.get("listener") == "barcode":
         # hashMap.put("toast",hashMap.get("barcode_input"))
-        with db_session:  # Заменил!!!
-            nom = ui_global.SW_Goods.get(barcode=hashMap.get("barcode_search"))
-            if nom == None:
-                hashMap.put("toast", "Товар не найден")
-            else:
-                hashMap, nom_id = open_nom(hashMap, nom_id, str(nom.id))
+        nom = ui_global.SW_Goods.get(barcode=hashMap.get("barcode_search"))
+        if nom == None:
+            hashMap.put("toast", "Товар не найден")
+        else:
+            hashMap, nom_id = open_nom(hashMap, nom_id, str(nom.id))
 
-                hashMap.put("speak", nom.name)
+            hashMap.put("speak", nom.name)
 
 
     elif hashMap.get("listener") == "vision":
         # hashMap.put("toast",hashMap.get("nom_id"))
-        with db_session:  # Заменил!!!
-            nom = ui_global.SW_Goods.get(id=int(hashMap.get("nom_id")))
-            if nom == None:
-                hashMap.put("toast", "Товар не найден")
-            else:
-                hashMap, nom_id = open_nom(hashMap, nom_id, str(nom.id))
-                hashMap.put("speak", nom.name)
+        nom = ui_global.SW_Goods.get(id=int(hashMap.get("nom_id")))
+        if nom == None:
+            hashMap.put("toast", "Товар не найден")
+        else:
+            hashMap, nom_id = open_nom(hashMap, nom_id, str(nom.id))
+            hashMap.put("speak", nom.name)
     elif hashMap.get("listener") == 'ON_BACK_PRESSED':
         hashMap.put("ShowScreen", "Меню НСИ")
-
-    return hashMap
-
-
-def goods_record_on_start(hashMap, _files=None, _data=None):
-    hashMap.put("mm_local", "")
-    hashMap.put("mm_compression", "70")
-    hashMap.put("mm_size", "65")
-
-    hashMap.put("fill_name", json.dumps({"hint": "Наименование", "default_text": hashMap.get("name")}))
-    hashMap.put("fill_barcode", json.dumps({"hint": "Штрихкод", "default_text": hashMap.get("barcode")}))
-    hashMap.put("fill_product_number", json.dumps({"hint": "Артикул", "default_text": hashMap.get("product_number")}))
-    hashMap.put("fill_price", json.dumps({"hint": "Цена", "default_text": hashMap.get("price")}))
-
-    units = []
-    units.append("<выберите единицу...>")
-    with db_session:# Заменил!!!
-        query = select(c for c in ui_global.SW_Units)
-        for record in query:
-            units.append(record.name)
-
-    hashMap.put("units", ";".join(units))
-
-    groups = []
-    groups.append("<выберите группу...>")
-    with db_session:# Заменил!!!
-        query = select(c for c in ui_global.SW_Groups)
-        for record in query:
-            groups.append(record.name)
-
-    hashMap.put("groups", ";".join(groups))
-
-    # hashMap.put("toast",hashMap.get("photoGallery"))
 
     return hashMap
 
@@ -503,6 +451,37 @@ def save_nom(hashMap):
     return hashMap, True
 
 
+def goods_record_on_start(hashMap, _files=None, _data=None):
+    hashMap.put("mm_local", "")
+    hashMap.put("mm_compression", "70")
+    hashMap.put("mm_size", "65")
+
+    hashMap.put("fill_name", json.dumps({"hint": "Введите наименование товара", "default_text": hashMap.get("name")}))
+    hashMap.put("fill_barcode", json.dumps({"hint": "Введите штрих-код товара", "default_text": hashMap.get("barcode")}))
+    hashMap.put("fill_product_number", json.dumps({"hint": "Введите артикул товара", "default_text": hashMap.get("product_number")}))
+    hashMap.put("fill_price", json.dumps({"hint": "Введите цену", "default_text": hashMap.get("price")}))
+
+    units = []
+    units.append("<Выберите единицу измерения ...>")
+    query = select(c for c in ui_global.SW_Units)
+    for record in query:
+        units.append(record.name)
+
+    hashMap.put("units", ";".join(units))
+
+    groups = []
+    groups.append("<Выберите группу товаров ...>")
+    query = select(c for c in ui_global.SW_Groups)
+    for record in query:
+        groups.append(record.name)
+
+    hashMap.put("groups", ";".join(groups))
+
+    # hashMap.put("toast",hashMap.get("photoGallery"))
+
+    return hashMap
+
+
 def goods_record_input(hashMap, _files=None, _data=None):
     global nom_id
     if hashMap.get("listener") == "btn_save":
@@ -510,7 +489,8 @@ def goods_record_input(hashMap, _files=None, _data=None):
 
         hashMap, success = save_nom(hashMap)
         if success:
-            hashMap.put("ShowScreen", "Товары")#pic
+            hashMap.put("ShowScreen", "Добавить товар")
+
     elif hashMap.get("listener") == "barcode":
         hashMap.put("barcode", hashMap.get("barcode_nom"))
 
@@ -518,13 +498,13 @@ def goods_record_input(hashMap, _files=None, _data=None):
         hashMap.put("toast", str(hashMap.get("selected_card_key")))
 
     elif hashMap.get("listener") == 'ON_BACK_PRESSED':
-        hashMap.put("ShowScreen", "Товары")
+        hashMap.put("ShowScreen", "Добавить товар")
 
     elif hashMap.get("listener") == 'menu_del':
         with db_session:
             r = ui_global.SW_Goods[nom_id]
             r.delete()
-        hashMap.put("ShowScreen", "Товары")
+        hashMap.put("ShowScreen", "Добавить товар")
         hashMap.put("toast", "Удалено...")
 
     elif hashMap.get("listener") == "photo":
@@ -553,7 +533,7 @@ def goods_record_input(hashMap, _files=None, _data=None):
 
     return hashMap
 
-    # -------------------------Ячейки
+    # -------------------------Добавить ячейку
 
 
 def cells_on_start(hashMap, _files=None, _data=None):
@@ -592,13 +572,12 @@ def cells_on_start(hashMap, _files=None, _data=None):
     }
     }
 
-    with db_session:# Заменил!!!
-        query = select(c for c in ui_global.SW_Cells)
-        list["customcards"]["cardsdata"] = []
+    query = select(c for c in ui_global.SW_Cells)
+    list["customcards"]["cardsdata"] = []
 
-        for record in query:
-            list["customcards"]["cardsdata"].append({"name": record.name, "key": record.id, "barcode": str(record.barcode)})
-        hashMap.put("list", json.dumps(list))
+    for record in query:
+        list["customcards"]["cardsdata"].append({"name": record.name, "key": record.id, "barcode": str(record.barcode)})
+    hashMap.put("list", json.dumps(list))
 
     return hashMap
 
@@ -667,7 +646,7 @@ def cells_record_input(hashMap, _files=None, _data=None):
                 r.barcode = get_if_exist(hashMap, "barcode")
 
                 commit()
-        hashMap.put("ShowScreen", "Ячейки")
+        hashMap.put("ShowScreen", "Добавить ячейку")
 
     elif hashMap.get("listener") == "barcode":
         hashMap.put("barcode", hashMap.get("barcode_cell"))
@@ -682,7 +661,7 @@ def cells_record_input(hashMap, _files=None, _data=None):
         with db_session:
             r = ui_global.SW_Cells[cell_id]
             r.delete()
-        hashMap.put("ShowScreen", "Ячейки")
+        hashMap.put("ShowScreen", "Добавить ячейку")
         hashMap.put("toast", "Удалено...")
 
     return hashMap
@@ -721,10 +700,9 @@ def income_cell_on_start(hashMap, _files=None, _data=None):
 
     cells = []
     cells.append("<выберите ячейку...>")
-    with db_session:# Заменил!!!
-        query = select(c for c in ui_global.SW_Cells)
-        for record in query:
-            cells.append(record.name)
+    query = select(c for c in ui_global.SW_Cells)
+    for record in query:
+        cells.append(record.name)
 
     hashMap.put("cells", ";".join(cells))
 
@@ -748,8 +726,8 @@ def income_cell_on_input(hashMap, _files=None, _data=None):
         hashMap.put("ShowScreen", "Выбор товара")
 
     elif hashMap.get("listener") == "barcode":
-        with db_session:  # Заменил!!!
-            cell = ui_global.SW_Cells.get(barcode=hashMap.get("barcode_cell"))
+
+        cell = ui_global.SW_Cells.get(barcode=hashMap.get("barcode_cell"))
         if cell == None:
             hashMap.put("toast", "Ячейка не найдена")
         else:
@@ -759,8 +737,7 @@ def income_cell_on_input(hashMap, _files=None, _data=None):
             hashMap.put("ShowScreen", "Выбор товара")
 
     elif hashMap.get("listener") == 'cell':
-        with db_session:  # Заменил!!!
-            cell = ui_global.SW_Cells.get(name=hashMap.get("cell"))
+        cell = ui_global.SW_Cells.get(name=hashMap.get("cell"))
         if cell == None:
             hashMap.put("toast", "Ячейка не найдена")
         else:
@@ -789,8 +766,8 @@ def income_nom_input(hashMap, _files=None, _data=None):
     elif hashMap.get("listener") == "BACK_BUTTON":
         hashMap.put("ShowScreen", "Выбор ячейки")
     elif hashMap.get("listener") == "barcode":
-        with db_session:  # Заменил!!!
-            nom = ui_global.SW_Goods.get(barcode=hashMap.get("barcode"))
+
+        nom = ui_global.SW_Goods.get(barcode=hashMap.get("barcode"))
         if nom == None:
             hashMap.put("toast", "Товар не найден")
         else:
@@ -802,8 +779,7 @@ def income_nom_input(hashMap, _files=None, _data=None):
 
     elif hashMap.get("listener") == "vision":
         # hashMap.put("toast",hashMap.get("nom_id"))
-        with db_session:  # Заменил!!!
-            nom = ui_global.SW_Goods.get(id=int(hashMap.get("nom_id")))
+        nom = ui_global.SW_Goods.get(id=int(hashMap.get("nom_id")))
         if nom == None:
             hashMap.put("toast", "Товар не найден")
         else:
@@ -846,7 +822,7 @@ def outcome_qty_input(hashMap, _files=None, _data=None):
 
         if getfloat_if_exist(hashMap, "qty") > 0:
             with db_session:
-                r = ui_global.SW_Account(qty=-1 * getfloat_if_exist(hashMap, "qty"), sku=int(hashMap.get("nom_id")),
+                r = ui_global.SW_Account(qty=getfloat_if_exist(-1 * hashMap, "qty"), sku=int(hashMap.get("nom_id")),
                                          cell=int(hashMap.get("cell_id")))
                 commit()
 
@@ -892,7 +868,7 @@ def stock_on_create(hashMap, _files=None, _data=None):
 
     conn = None
     try:
-        conn = sqlite3.connect(DB_PATH_debug)
+        conn = sqlite3.connect('//data/data/ru.travelfood.simple_ui/databases/SimpleWMS')
     except Error as e:
         raise ValueError('Нет соединения с базой!')
 
@@ -938,7 +914,7 @@ def get_table_by_cell(id):
 
     conn = None
     try:
-        conn = sqlite3.connect(DB_PATH_debug)
+        conn = sqlite3.connect('//data/data/ru.travelfood.simple_ui/databases/SimpleWMS')
     except Error as e:
         raise ValueError('Нет соединения с базой!')
 
@@ -984,7 +960,7 @@ def get_table_by_nom(id):
 
     conn = None
     try:
-        conn = sqlite3.connect(DB_PATH_debug)
+        conn = sqlite3.connect('//data/data/ru.travelfood.simple_ui/databases/SimpleWMS')
     except Error as e:
         raise ValueError('Нет соединения с базой!')
 
@@ -1006,8 +982,8 @@ def get_table_by_nom(id):
 
 def stock_input(hashMap, _files=None, _data=None):
     if hashMap.get("listener") == "barcode":
-        with db_session:  # Заменил!!!
-            nom = ui_global.SW_Goods.get(barcode=hashMap.get("barcode"))
+
+        nom = ui_global.SW_Goods.get(barcode=hashMap.get("barcode"))
         is_nom = False
 
         object = ""
@@ -1021,8 +997,7 @@ def stock_input(hashMap, _files=None, _data=None):
             hashMap.put("ShowScreen", "Остатки по объекту")
 
         if not is_nom:
-            with db_session:  # Заменил!!!
-                cell = ui_global.SW_Cells.get(barcode=hashMap.get("barcode"))
+            cell = ui_global.SW_Cells.get(barcode=hashMap.get("barcode"))
             if cell == None:
                 hashMap.put("toast", "Штрихкод ни ячейки ни тоара")
             else:
@@ -1076,14 +1051,13 @@ def inventory_on_start(hashMap, _files=None, _data=None):
     }
     }
 
-    with db_session:# Заменил!!!
-        query = select(c for c in ui_global.SW_Inventory)
-        list["customcards"]["cardsdata"] = []
+    query = select(c for c in ui_global.SW_Inventory)
+    list["customcards"]["cardsdata"] = []
 
-        for record in query:
-            list["customcards"]["cardsdata"].append(
-                {"descr": record.description, "key": record.id, "date": str(record.created_at)})
-        hashMap.put("inventory", json.dumps(list))
+    for record in query:
+        list["customcards"]["cardsdata"].append(
+            {"descr": record.description, "key": record.id, "date": str(record.created_at)})
+    hashMap.put("inventory", json.dumps(list))
 
     return hashMap
 
@@ -1166,7 +1140,7 @@ def invres_on_start(hashMap, _files=None, _data=None):
 
     conn = None
     try:
-        conn = sqlite3.connect(DB_PATH_debug)
+        conn = sqlite3.connect('//data/data/ru.travelfood.simple_ui/databases/SimpleWMS')
     except Error as e:
         raise ValueError('Нет соединения с базой!')
 
@@ -1231,7 +1205,7 @@ def invcv_cell_on_start(hashMap, _files=None, _data=None):
     # create connection with database
     conn = None
     try:
-        conn = sqlite3.connect(DB_PATH_debug)# было - заменил('//data/data/ru.travelfood.simple_ui/databases/SimpleWMS')
+        conn = sqlite3.connect('//data/data/ru.travelfood.simple_ui/databases/SimpleWMS')
     except Error as e:
         raise ValueError('Нет соединения с базой!')
 
@@ -1271,8 +1245,7 @@ def invcv_cell_on_new_object_ocr(hashMap, _files=None, _data=None):
         # create connection with database
         conn = None
         try:
-
-            conn = sqlite3.connect(DB_PATH_debug)
+            conn = sqlite3.connect('//data/data/ru.travelfood.simple_ui/databases/SimpleWMS')
         except Error as e:
             raise ValueError('Нет соединения с базой!')
 
@@ -1322,7 +1295,7 @@ def invcv_cell_on_new_object(hashMap, _files=None, _data=None):
         # create connection with database
         conn = None
         try:
-            conn = sqlite3.connect(DB_PATH_debug)
+            conn = sqlite3.connect('//data/data/ru.travelfood.simple_ui/databases/SimpleWMS')
         except Error as e:
             raise ValueError('Нет соединения с базой!')
 
@@ -1484,58 +1457,3 @@ def invcv_goods_action(hashMap, _files=None, _data=None):
                     "Инвентаризация " + str(hashMap.get("inv_name")) + " от " + invdate.strftime("%m.%d.%Y, %H:%M:%S"))
 
     return hashMap
-
-# -END CUSTOM HANDLERS
-
-
-
-@app.route('/set_input_direct/<method>', methods=['POST'])
-def set_input(method):
-    #func = method
-    func = method.replace('_', '', 1)
-    jdata = json.loads(request.data.decode('utf-8'))
-    f = globals()[func]
-    hashMap.d = jdata['hashmap']
-    # f()
-    # f('hashmap')
-    f(hashMap)  # new
-    jdata['hashmap'] = hashMap.export()
-    jdata['stop'] = False
-    jdata['ErrorMessage'] = ''
-    jdata['Rows'] = []
-
-    return json.dumps(jdata)
-
-
-@app.route('/post_screenshot', methods=['POST'])
-def post_screenshot():
-    d = request.data
-    return '1'
-
-
-class hashMap:
-    d = {}
-
-    def put(key, val):
-        hashMap.d[key] = val
-
-    def get(key):
-        return hashMap.d.get(key)
-
-    def remove(key):
-        if key in hashMap.d:
-            hashMap.d.pop(key)
-
-    def containsKey(key):
-        return key in hashMap.d
-
-    def export():  # It's NOT error!!!
-        ex_hashMap = []
-        for key in hashMap.d.keys():
-            ex_hashMap.append({'key': key, 'value': hashMap.d[key]})
-        return ex_hashMap
-
-
-if __name__ == '__main__':
-    init_on_start()  # new
-    app.run(host='0.0.0.0', port=2075, debug=True)
